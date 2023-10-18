@@ -129,7 +129,7 @@ for seed in range(seeds):
                     # refer code from jupyter notebook
                     fig, ax = plt.subplots(1, 3, dpi=200, figsize=(16, 3))
                     # obs_data = [xs[:,0], ys[:,0], zs[:,0]]
-                    obs = pd.read_csv('groudtruthcurvesobs.csv')
+                    obs = pd.read_csv('groundtruthcurvesobs.csv')
                     obs = [obs['X'], obs['Y'], obs['Z']]
                     # for dense observations
                     # if dense_obs==True:
@@ -146,7 +146,7 @@ for seed in range(seeds):
                     # else:
                     #     t1 = ts
                     # (pd.DataFrame(np.array([obsdata[0],obsdata[1],obsdata[2]]), 
-                    #              index=["X", "Y", "Z"]).T).to_csv('groudtruthcurvesobs.csv', index=False)
+                    #              index=["X", "Y", "Z"]).T).to_csv('groundtruthcurvesobs.csv', index=False)
 
 
                     # XYZ plot
