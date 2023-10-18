@@ -171,7 +171,7 @@ for seed in range(seeds):
                             pars[0], pars[1], pars[2]
                         )
                     )   
-                    file.write(str(n)+"N"+str(noise_YN)+"D"+str(dense_obs)+'lambda'+str(tuning_lambda)+": Estimated parameters: c1 = {:3.2f}, c2 = {:3.2f}, c3 = {:3.2f}".format(
+                    file.write(str(n)+"N"+str(noise_YN)+"D"+str(dense_obs)+'lambda'+str(l)+": Estimated parameters: c1 = {:3.2f}, c2 = {:3.2f}, c3 = {:3.2f}".format(
                             np.exp(pinn.c1.numpy().item()), np.exp(pinn.c2.numpy().item()), np.exp(pinn.c3.numpy().item()))+"\n")
                        
 
