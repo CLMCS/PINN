@@ -48,7 +48,6 @@ class LorenzPINN(tf.keras.Model):
         dz_dt = g.gradient(z, t)
         del g
 
-
         fx = dx_dt - vars[0] * (y - x)
         fy = dy_dt - x * (vars[1] - z) + y
         fz = dz_dt - x * y + vars[2] * z
@@ -58,8 +57,11 @@ class LorenzPINN(tf.keras.Model):
     def set_lr(self, lr):
         self.optimizer = tf.optimizers.Adam(learning_rate=lr)
 
-    def get_loss(self, t, u_true, tuning_lambda):
-        return self.__mse(u_true, self(t), tuning_lambda)
+    def get_loss(self, t_obs, u_true, t_dense, tuning_lambda):
+        mse_part_xyz = self.__mse_xyz(u_true, self(t_obs))
+        mse_part_dxdydz = self.__mse_dzdydz(self(t_dense))
+        # mse_part_xyz = np.repeat(mse_part_xyz, len(mse_part_dxdydz)/len(mse_part_xyz), axis=0)
+        return tuning_lambda * mse_part_xyz + mse_part_dxdydz
 
     def get_error(self, true):
         pred = tf.squeeze(self.predict())
@@ -75,26 +77,28 @@ class LorenzPINN(tf.keras.Model):
     def predict_curves(self,t):
         return self.NN(t)
 
-    def optimize(self, t, u_true, tuning_lambda):
+    def optimize(self, t, t_dense, u_true, tuning_lambda):
         # make the t here to be dense
-        loss = lambda: self.get_loss(t, u_true, tuning_lambda)
+        loss = lambda: self.get_loss(t, u_true, t_dense, tuning_lambda)
         self.optimizer.minimize(loss=loss, var_list=self.trainable_weights)
 
     def save_model(self):
 
         self.save_weights("model_weights/{}.tf".format(self.string))
 
-    def fit(self,observed_data,true_pars,epochs,tuning_lambda,verbose=False):
+    def fit(self,observed_data,true_pars,epochs,dense_time,tuning_lambda,verbose=False):
 
         for ep in range(self.epochs+1,self.epochs+epochs+1):
             # physical loss here is only evaluated at time t for t in the observation time points
-            self.optimize(observed_data[0],[observed_data[1],observed_data[2],observed_data[3]], tuning_lambda)
+            self.optimize(observed_data[0],dense_time,[observed_data[1],observed_data[2],observed_data[3]], tuning_lambda)
             
             if ep % 100 == 0 or ep == 1:
                 # pred = self.predict()
-                loss = self.get_loss(observed_data[0], [observed_data[1],observed_data[2],observed_data[3]], tuning_lambda) / observed_data[0].shape[0]
+                loss = self.get_loss(observed_data[0], [observed_data[1],observed_data[2],observed_data[3]], dense_time, tuning_lambda) / observed_data[0].shape[0]
                 error = self.get_error(true_pars)        
                 curves = self.predict_curves(observed_data[0])
+                # when tested dense time
+                # curves = self.predict_curves(dense_time)
                 if verbose:
                     print('\n')
                     print(
@@ -111,24 +115,6 @@ class LorenzPINN(tf.keras.Model):
         self.epochs += epochs
         self.save_model()
 
-    # def cv_lambda(self, data, data_noise, n):
-    #     rng = np.random.RandomState(seed=5)
-    #     all_indices = rng.permutation(n)
-    #     train_indices = all_indices[:round(n * 0.8)]
-    #     test_indices = all_indices[round(n * 0.2):]
-    #     best_lambda = None
-    #     best_error = None
-    #     kfold = 10
-    #     lambda_list = [0.0001, 0.001, 0.1, 1, 5, 10, 50, 100, 1000, 10000]
-    #     for lm in lambda_list:
-    #         err = Regression().ridge_cross_validation(data[train_indices], data_noise[train_indices], kfold, lm)
-    
-    #         if best_error is None or err < best_error: 
-    #             best_error = err
-    #             best_lambda = lm
-    #             weight = Regression().ridge_fit_closed(data[train_indices], data_noise[train_indices], c_lambda=10)
-    #             y_test_pred = Regression().predict(data[test_indices], weight)
-    #     return best_lambda
 
     def __mse(self, u_true, y_pred, tuning_lambda):
 
@@ -145,6 +131,28 @@ class LorenzPINN(tf.keras.Model):
         # 10 should be replaced by lambda tuning parameter, especailly for noisy observations
         return tuning_lambda*(loss_x + loss_y + loss_z) + loss_fx + loss_fy + loss_fz #+ loss_neg
 
+
+
+
+    def __mse_xyz(self, u_true, y_pred):
+
+        # pred = self.predict()
+
+        loss_x = tf.reduce_mean(tf.square(y_pred[0] - u_true[0]))
+        loss_y = tf.reduce_mean(tf.square(y_pred[1] - u_true[1]))
+        loss_z = tf.reduce_mean(tf.square(y_pred[2] - u_true[2]))
+
+        return (loss_x + loss_y + loss_z)
+
+
+
+    def __mse_dzdydz(self, y_pred):
+
+        loss_fx = tf.reduce_mean(tf.square(y_pred[3]))
+        loss_fy = tf.reduce_mean(tf.square(y_pred[4]))
+        loss_fz = tf.reduce_mean(tf.square(y_pred[5]))
+
+        return loss_fx + loss_fy + loss_fz
 
 
 
